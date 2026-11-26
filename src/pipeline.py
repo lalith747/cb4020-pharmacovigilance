@@ -118,7 +118,7 @@ def extract_entities(clean: pd.DataFrame) -> tuple[pd.DataFrame, str]:
         for sentence, target, label in checks:
             detected = any(ent.text.lower() == target.lower() and ent.label_ == label for ent in nlp(sentence).ents)
             validation.append({"sentence": sentence, "target": target, "expected_label": label,
-                               "detected": detected, "validation_method": "manual target-term check"})
+                               "detected": detected, "validation_method": "scispaCy BC5CDR exact-span and label check"})
     pd.DataFrame(validation, columns=["sentence", "target", "expected_label", "detected", "validation_method"]).to_csv(
         PROCESSED / "ner_target_validation.csv", index=False)
     rows = []
@@ -150,26 +150,47 @@ def extract_entities(clean: pd.DataFrame) -> tuple[pd.DataFrame, str]:
     return entities, "scispaCy BC5CDR with target dictionary fallback" if nlp else "dictionary target-term matching (scispaCy unavailable)"
 
 
-NEGATED = ["no evidence", "not associated", "not linked", "not related", "without evidence", "absence of", "did not", "was not", "were not", "no association"]
-UNCERTAIN = ["possibly", "uncertain", "unclear", "cannot exclude", "may possibly", "might", "could potentially"]
-SUPPORTIVE = ["associated", "induced", "caused", "cause", "contribute", "attribut", "risk of", "due to", "related to", "linked to", "case of", "developed"]
-
-
 def classify_relation(sentence: str) -> tuple[str, str]:
     low = sentence.lower()
-    # Negation has precedence over supportive cues. Uncertainty then precedes generic association.
-    for phrase in NEGATED:
-        if phrase in low:
-            return "Negated", f"negation cue: {phrase}"
-    for phrase in UNCERTAIN:
-        if phrase in low:
-            return "Uncertain", f"uncertainty cue: {phrase}"
-    for phrase in SUPPORTIVE:
-        if phrase in low:
-            return "Supportive", f"association cue: {phrase}"
-    # Hyphenated compound names are a direct association construction.
-    if re.search(r"metformin[- ](?:associated|induced)[- ]lactic acidosis", low):
-        return "Supportive", "compound association phrase"
+    pair = r"(?:metformin.{0,120}lactic\s+acidosis|lactic\s+acidosis.{0,120}metformin)"
+    negatives = [
+        (r"\bno\s+(?:clear\s+)?association\s+between\s+metformin\s+and\s+lactic\s+acidosis\b", "no association"),
+        (r"\bmetformin\b.{0,100}\bnot\s+associated\s+with\b.{0,80}\blactic\s+acidosis\b", "metformin not associated with lactic acidosis"),
+        (r"\blactic\s+acidosis\b.{0,80}\bnot\s+associated\s+with\b.{0,80}\bmetformin\b", "lactic acidosis not associated with metformin"),
+        (r"\bno\s+evidence\b.{0,100}\bmetformin\b.{0,100}\blactic\s+acidosis\b", "no evidence for target relationship"),
+        (r"\bno\s+evidence\b.{0,100}\blactic\s+acidosis\b.{0,100}\bmetformin\b", "no evidence for target relationship"),
+        (r"\bmetformin\b.{0,50}\b(?:unlikely\s+to\s+cause|does\s+not\s+cause|did\s+not\s+cause|does\s+not\s+induce|did\s+not\s+induce)\b.{0,35}\blactic\s+acidosis\b", "explicit denial of causation"),
+        (r"\bno\s+difference\b.{0,100}\b(?:in\s+)?(?:the\s+)?(?:prevalence|incidence|risk|occurrence)\b.{0,60}\b(?:between|with|by)\b.{0,60}\b(?:metformin|lactic\s+acidosis)\b", "no difference reported for target outcome"),
+    ]
+    for pattern, rule in negatives:
+        if re.search(pattern, low):
+            return "Negated", rule
+
+    if (re.search(r"\b(?:cause\s+or\s+coincidence|uncertain\s+whether|unclear\s+whether|remains\s+controversial|not\s+clearly\s+established)\b", low) and re.search(pair, low)) or re.search(r"\bextent\s+to\s+which\s+metformin\s+(?:may\s+)?(?:contribute(?:s)?\s+to|cause(?:s)?|induce(?:s)?)\s+lactic\s+acidosis\b", low):
+        return "Uncertain", "relationship explicitly described as unclear or disputed"
+    if re.search(r"\bmetformin\b.{0,100}\b(?:unlikely\s+to\s+cause|unlikely\s+to\s+induce)\b.{0,40}\blactic\s+acidosis\b", low):
+        return "Negated", "metformin described as unlikely to cause lactic acidosis"
+    if re.search(r"\bmetformin\b.{0,80}\b(?:may\s+possibly|might|possibly|could\s+potentially)\b.{0,70}\b(?:cause|induce|contribute|increase|elevate|raise)\b.{0,50}\blactic\s+acidosis\b", low):
+        return "Uncertain", "hedged target-specific relation"
+    if re.search(r"\blactic\s+acidosis\b.{0,80}\b(?:may\s+possibly|might|possibly|could\s+potentially)\b.{0,70}\b(?:caused\s+by|due\s+to|induced\s+by|attributable\s+to)\b.{0,40}\bmetformin\b", low):
+        return "Uncertain", "hedged target-specific relation"
+
+    supportive = [
+        (r"\bmetformin[-\s]+(?:associated|induced|related)[-\s]+lactic\s+acidosis\b", "named metformin-lactic-acidosis association"),
+        (r"\bmetformin\b.{0,60}\b(?:is|was|were|has been|remains)?\s*(?:associated|linked)\s+with\b.{0,50}\blactic\s+acidosis\b", "metformin associated or linked with lactic acidosis"),
+        (r"\blactic\s+acidosis\b.{0,60}\b(?:is|was|were|has been)?\s*(?:associated|linked)\s+with\b.{0,50}\bmetformin\b", "lactic acidosis associated or linked with metformin"),
+        (r"\bmetformin\b.{0,25}\b(?:can|may|could)?\s*(?:cause|causes|caused|induce|induces|induced|trigger|triggers|triggered|contribute\s+to|contributes\s+to|contributed\s+to)\b.{0,25}\blactic\s+acidosis\b", "direct causal or contributory wording"),
+        (r"\blactic\s+acidosis\b.{0,35}\b(?:caused\s+by|due\s+to|induced\s+by|triggered\s+by|attributable\s+to)\b.{0,30}\bmetformin\b", "direct causal wording"),
+        (r"\bmetformin\b.{0,50}\b(?:increased|increases|elevated|elevates|raised|raises)\s+(?:the\s+)?(?:risk|incidence|occurrence)\s+of\s+lactic\s+acidosis\b", "increased target outcome risk or incidence reported"),
+        (r"\blactic\s+acidosis\b.{0,45}\b(?:side\s+effect|adverse\s+effect|complication)\b.{0,60}\bmetformin\b", "adverse effect explicitly attributed to metformin"),
+        (r"\blactic\s+acidosis\b.{0,60}\bmetformin\b.{0,60}\b(?:side\s+effect|adverse\s+effect|complication)\b", "adverse effect explicitly attributed to metformin"),
+        (r"\bmetformin\b.{0,60}\b(?:side\s+effect|adverse\s+effect|complication)\b.{0,60}\blactic\s+acidosis\b", "adverse effect explicitly attributed to metformin"),
+        (r"\blactic\s+acidosis\b.{0,80}\bin\s+metformin\s+(?:use|therapy|treatment)\b.{0,100}\b(?:side\s+effect|adverse\s+effect|complication)\b", "adverse effect in metformin use explicitly stated"),
+        (r"\blactic\s+acidosis\b.{0,80}\b(?:rare|serious|fatal|lethal)\s+(?:but\s+)?(?:rare\s+)?(?:side|adverse)\s+effect\b.{0,70}\bmetformin\b", "adverse effect explicitly attributed to metformin"),
+    ]
+    for pattern, rule in supportive:
+        if re.search(pattern, low):
+            return "Supportive", rule
     return "Co-occurrence only", "both target entities present; no relation cue"
 
 
@@ -230,6 +251,51 @@ def evaluate_rule_examples() -> pd.DataFrame:
     return out
 
 
+def evaluate_corpus_review(relations: pd.DataFrame) -> pd.DataFrame:
+    """Evaluate a small, manually labeled corpus spot-check; this is not independent validation."""
+    reviewed = [
+        ("8405019", "Metformin-associated lactic acidosis in Sweden", "Supportive"),
+        ("31842973", "rare but serious adverse effect in patients treated with metformin", "Supportive"),
+        ("31372935", "therapeutic doses of metformin are unlikely to cause lactic acidosis", "Negated"),
+        ("14638559", "There is no evidence to date that metformin therapy is associated", "Negated"),
+        ("28120561", "There was no difference in prevalence", "Negated"),
+        ("28120561", "Metformin use was not associated with hyperlactatemia or lactic acidosis", "Negated"),
+        ("14746555", "cause or coincidence?", "Uncertain"),
+        ("41619701", "remains unclear, particularly when blood metformin concentrations are unavailable", "Uncertain"),
+        ("22242910", "Lactic acidosis is a fatal adverse effect of metformin", "Supportive"),
+        ("18490795", "Reality of severe metformin-induced lactic acidosis", "Supportive"),
+        ("18490795", "Lactic acidosis in metformin use is a widely recognised but rare side effect", "Supportive"),
+        ("39053014", "The objective of this study was to investigate the correlation", "Co-occurrence only"),
+        ("23391971", "To evaluate the significance of diabetes mellitus and metformin", "Co-occurrence only"),
+        ("36811419", "Methylene blue might be a valuable adjunct to dialysis", "Co-occurrence only"),
+        ("37715272", "Daily dose of metformin caused acute kidney injury with lactic acidosis", "Co-occurrence only"),
+        ("28558845", "This study aimed to determine if uninterrupted metformin administration", "Co-occurrence only"),
+        ("39788792", "A direct causal link between metformin overdose and lactic acidosis is not clearly established", "Uncertain"),
+    ]
+    rows = []
+    for pmid, fragment, expected in reviewed:
+        matches = relations[(relations.pmid.astype(str) == pmid) & relations.sentence.str.contains(fragment, regex=False)]
+        if matches.empty:
+            raise ValueError(f"Reviewed corpus sentence not found: PMID {pmid}: {fragment}")
+        for row in matches.itertuples(index=False):
+            rows.append({"pmid": pmid, "sentence": row.sentence, "expected_category": expected,
+                         "predicted_category": row.relationship_category, "correct": expected == row.relationship_category,
+                         "evidence_rule": row.evidence_rules, "review_note": "Manually labeled spot-check; not independent or gold-standard validation."})
+    out = pd.DataFrame(rows)
+    out.to_csv(PROCESSED / "relation_review_set.csv", index=False)
+    out.to_csv(PROCESSED / "relation_validation_results.csv", index=False)
+    from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+    labels = ["Supportive", "Negated", "Uncertain", "Co-occurrence only"]
+    precision, recall, f1, support = precision_recall_fscore_support(out.expected_category, out.predicted_category, labels=labels, zero_division=0)
+    summary = [{"metric": "accuracy", "category": "all", "value": accuracy_score(out.expected_category, out.predicted_category), "n": len(out)}]
+    summary.extend({"metric": metric, "category": label, "value": float(value), "n": int(n)}
+                   for label, p, r, f, n in zip(labels, precision, recall, f1, support)
+                   for metric, value in (("precision", p), ("recall", r), ("f1", f)))
+    pd.DataFrame(summary).to_csv(PROCESSED / "relation_validation_summary.csv", index=False)
+    print(f"Corpus spot-check: {out.correct.sum()}/{len(out)} correct; single-reviewer descriptive check only")
+    return out
+
+
 def run() -> None:
     PROCESSED.mkdir(parents=True, exist_ok=True)
     if not RAW.exists():
@@ -245,6 +311,7 @@ def run() -> None:
     rel = extract_relations(clean)
     prioritize(rel)
     evaluate_rule_examples()
+    evaluate_corpus_review(rel)
     print(f"Loaded {len(df)} PubMed records; entity method: {method}; relations: {len(rel)}")
 
 
