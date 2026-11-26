@@ -79,3 +79,30 @@ else:
     st.subheader("FAERS reference values (provided assignment data)")
     st.caption("These supplied pharmacovigilance statistics are separate from and were not calculated by the PubMed NLP pipeline.")
     st.dataframe(pd.DataFrame([{"Reports": 408, "ROR": 499.446412, "PRR": 338.044717, "EBGM": 175.482554, "Signal label": 1}]), hide_index=True)
+
+    st.subheader("NER target checks")
+    ner = load("ner_target_validation.csv")
+    if not ner.empty:
+        st.dataframe(ner, use_container_width=True, hide_index=True)
+        st.caption(f"BC5CDR exact-span and entity-label checks passed: {int(ner.detected.astype(str).str.lower().eq('true').sum())}/{len(ner)}. Dictionary fallback is separately recorded during corpus extraction.")
+
+    st.subheader("Relation-rule spot-check")
+    validation = load("relation_validation_summary.csv")
+    review = load("relation_validation_results.csv")
+    if not validation.empty:
+        accuracy = validation[(validation.metric == "accuracy") & (validation.category == "all")]
+        if not accuracy.empty:
+            st.metric("Manually reviewed corpus sentences correct", f"{int(accuracy.iloc[0].value * accuracy.iloc[0].n)}/{int(accuracy.iloc[0].n)}")
+        st.caption("Small manually labeled spot-check; same project team applied the labels. It is not independent or gold-standard validation.")
+        st.dataframe(review[["pmid", "expected_category", "predicted_category", "correct", "sentence"]], use_container_width=True, hide_index=True)
+
+    st.subheader("What the literature says alongside FAERS")
+    st.write("The supplied FAERS result is a strong disproportionality signal (408 reports; ROR 499.45, PRR 338.04, EBGM 175.48). PubMed publications support that metformin can contribute to metformin-associated lactic acidosis, often alongside renal impairment or other acute risk factors. Population evidence is mixed: several analyses find little or no excess risk under study conditions, while increased risk is reported at severe renal impairment. This is directionally compatible with a recognized but rare, context-dependent adverse event; it does not validate the FAERS magnitude or establish causation.")
+    literature = pd.DataFrame([
+        {"Finding": "Case review supports a contributory role; 97% of 559 cases had independent risk factors", "Study": "Systematic review (2019)", "PMID": "31372935", "Link": "https://pubmed.ncbi.nlm.nih.gov/31372935/"},
+        {"Finding": "No cases across 36,893 metformin patient-years in included studies; no increased risk under study conditions", "Study": "Systematic review/meta-analysis (2003)", "PMID": "14638559", "Link": "https://pubmed.ncbi.nlm.nih.gov/14638559/"},
+        {"Finding": "No overall association; higher acidosis risk observed only when eGFR was below 30", "Study": "Community cohort (2018)", "PMID": "29868840", "Link": "https://pubmed.ncbi.nlm.nih.gov/29868840/"},
+        {"Finding": "No increased risk in a community study; confirmed cases had other possible causes", "Study": "Fremantle Diabetes Study (2008)", "PMID": "18429709", "Link": "https://pubmed.ncbi.nlm.nih.gov/18429709/"},
+    ])
+    st.dataframe(literature, column_config={"Link": st.column_config.LinkColumn("PubMed")}, use_container_width=True, hide_index=True)
+    st.caption("Comparison limits: FAERS disproportionality has no exposure denominator and is affected by under-reporting, stimulated reporting, duplicates, confounding and report quality. Published studies use different populations, definitions and designs; case reports and publication bias can overrepresent severe events. Neither source alone estimates the causal incidence.")
