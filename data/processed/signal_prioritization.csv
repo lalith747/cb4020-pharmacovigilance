@@ -1,2 +1,2 @@
 drug,adr,supportive_publications,supportive_sentences,priority_score,priority_label,score_definition
-Metformin,Lactic acidosis,161,373,100,Higher literature support,"3*min(unique supportive PMIDs,20)+min(supportive sentences,40)"
+Metformin,Lactic acidosis,144,317,100,Higher literature support,"3*min(unique supportive PMIDs,20)+min(supportive sentences,40)"
