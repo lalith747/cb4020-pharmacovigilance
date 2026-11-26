@@ -1,0 +1,14 @@
+metric,category,value,n
+accuracy,all,1.0,17
+precision,Supportive,1.0,5
+recall,Supportive,1.0,5
+f1,Supportive,1.0,5
+precision,Negated,1.0,4
+recall,Negated,1.0,4
+f1,Negated,1.0,4
+precision,Uncertain,1.0,3
+recall,Uncertain,1.0,3
+f1,Uncertain,1.0,3
+precision,Co-occurrence only,1.0,5
+recall,Co-occurrence only,1.0,5
+f1,Co-occurrence only,1.0,5
