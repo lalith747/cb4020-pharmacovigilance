@@ -1,0 +1,13 @@
+sentence,expected_category,predicted_category,correct,evidence_rule
+Metformin-associated lactic acidosis was observed.,Supportive,Supportive,True,association cue: associated
+Metformin was associated with lactic acidosis.,Supportive,Supportive,True,association cue: associated
+Metformin may contribute to lactic acidosis.,Supportive,Supportive,True,association cue: contribute
+Metformin-induced lactic acidosis was reported.,Supportive,Supportive,True,association cue: induced
+Metformin caused lactic acidosis.,Supportive,Supportive,True,association cue: caused
+No evidence of metformin-induced lactic acidosis was found.,Negated,Negated,True,negation cue: no evidence
+Metformin was not associated with lactic acidosis.,Negated,Negated,True,negation cue: not associated
+There is no association between metformin and lactic acidosis.,Negated,Negated,True,negation cue: no association
+No evidence links metformin to lactic acidosis.,Negated,Negated,True,negation cue: no evidence
+Metformin may possibly increase risk of lactic acidosis.,Uncertain,Uncertain,True,uncertainty cue: possibly
+It is uncertain whether metformin causes lactic acidosis.,Uncertain,Uncertain,True,uncertainty cue: uncertain
+Metformin and lactic acidosis were both discussed.,Co-occurrence only,Co-occurrence only,True,both target entities present; no relation cue
