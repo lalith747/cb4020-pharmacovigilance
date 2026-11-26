@@ -1,5 +1,5 @@
 sentence,target,expected_label,detected,validation_method
-Metformin may cause lactic acidosis.,Metformin,CHEMICAL,True,manual target-term check
-Metformin may cause lactic acidosis.,lactic acidosis,DISEASE,True,manual target-term check
-Patients with lactic acidosis were treated with Metformin.,Metformin,CHEMICAL,True,manual target-term check
-Patients with lactic acidosis were treated with Metformin.,lactic acidosis,DISEASE,True,manual target-term check
+Metformin may cause lactic acidosis.,Metformin,CHEMICAL,True,scispaCy BC5CDR exact-span and label check
+Metformin may cause lactic acidosis.,lactic acidosis,DISEASE,True,scispaCy BC5CDR exact-span and label check
+Patients with lactic acidosis were treated with Metformin.,Metformin,CHEMICAL,True,scispaCy BC5CDR exact-span and label check
+Patients with lactic acidosis were treated with Metformin.,lactic acidosis,DISEASE,True,scispaCy BC5CDR exact-span and label check
