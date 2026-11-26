@@ -2,6 +2,8 @@
 
 **AI-driven adverse event signal screening from PubMed literature: metformin and lactic acidosis.** This is a small, reproducible academic screening pipeline. It is not a validated clinical decision tool and literature co-occurrence is not evidence of causation.
 
+**Live dashboard:** [metformin-safety-literature.streamlit.app](https://metformin-safety-literature.streamlit.app/)
+
 ## Setup
 
 Python 3.10 or newer is recommended.
