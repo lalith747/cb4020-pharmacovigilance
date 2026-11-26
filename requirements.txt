@@ -1,0 +1,13 @@
+biopython>=1.81
+pandas>=2.0
+numpy>=1.24,<2.0
+nltk>=3.8
+spacy==3.7.5
+scispacy==0.5.4
+https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_ner_bc5cdr_md-0.5.4.tar.gz
+scikit-learn>=1.3
+matplotlib>=3.7
+plotly>=5.18
+networkx>=3.1
+streamlit>=1.30
+jupyter>=1.0
